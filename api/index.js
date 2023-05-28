@@ -20,7 +20,6 @@ const weekday = require("dayjs/plugin/weekday");
 dayjs.extend(weekOfYear)
 dayjs.extend(weekday)
 
-
 cloudinary.config({
     cloud_name: "dgpgmk0w7",
     api_key: "928942683275635",
