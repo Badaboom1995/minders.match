@@ -207,6 +207,7 @@ const profileNormalizeScene = new WizardScene(
                 // send inline keyboard
                 await ctx.reply('Профиль готов! Теперь давай заполним запрос на следующую встречу', Markup.inlineKeyboard(makeKeyboard(['Перейти к запросу'], 2, 'done'), {columns: 2}));
                 track('profile is ready', undefined, {user_id: ctx.from.username})
+                ctx.session.missingData = null
                 // return ctx.scene.enter('requestScene');
         }
         return ctx.wizard.next();
