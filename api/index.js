@@ -62,13 +62,25 @@ bot.start(async (ctx) => {
     track('start', undefined, {
         user_id: ctx.from.username,
     });
-
+    const username =  ctx.from.username;
+    const {user, error} = await getUserFormDB(username);
+    if (user){
+        saveChatId(ctx);
+        ctx.session.user = user
+    } else {
+        await supabase
+            .from('Users')
+            .insert([{
+                telegram: ctx.from.username,
+                chat_id: ctx.chat.id,
+            }])
+        const {user, error} = await getUserFormDB(username);
+        ctx.session = {user}
+    }
     // track('bot start', {
     //     user_id: ctx.from.username,
     //     username: ctx.from.username,
     // })
-    saveChatId(ctx);
-    ctx.session = {};
     await ctx.reply(messages.welcome(ctx.from.first_name), Markup.inlineKeyboard(makeKeyboard(['Поехали 🚀'], 3, 'sync'), {columns: 3}));
 });
 
@@ -76,29 +88,37 @@ bot.action(/sync(.+)/, async (ctx) => {
     track('sync button pushed',undefined, {
         user_id: ctx.from.username,
     })
-    const username =  ctx.from.username;
-    const {user, error} = await getUserFormDB(username);
+    // const username =  ctx.from.username;
+    // const {user, error} = await getUserFormDB(username);
     await ctx.answerCbQuery();
+    // await ctx.reply(`Супер, нужно заполнить недостающие поля`);
+    await wait(1000);
+    await ctx.scene.enter('profileNormalize');
+    // if(user){
+    //     await ctx.reply(' Нашел');
+    // }
+    // ctx.session.user = user;
+    // if (error) {
+    //     track('profile not found',undefined, {
+    //         user_id: ctx.from.username,
+    //     })
+    //     ctx.reply(messages.notFoundProfile());
+    //     const timestamp = new Date().toLocaleString();
+    //     await sendToAdmins(`🚨Не нашли пользователя ${ctx.from.username}, ${timestamp}`, bot)
+    // }
 
-    ctx.session.user = user;
-    if (error) {
-        track('profile not found',undefined, {
-            user_id: ctx.from.username,
-        })
-        ctx.reply(messages.notFoundProfile());
-        const timestamp = new Date().toLocaleString();
-        await sendToAdmins(`🚨Не нашли пользователя ${ctx.from.username}, ${timestamp}`, bot)
-    }
-    if (user) {
-        track('profile found',undefined, {
-            user_id: ctx.from.username,
-        })
-        await ctx.reply('✅ Нашел');
-        await sendProfile(ctx)
-        await ctx.reply('Твой профиль? Дозаполнить и изменить можно будет дальше',Markup.inlineKeyboard(makeKeyboard(['Да, мой', 'Не мой'], 3, 'isRight'), {columns: 3}))
-    }
+    // if (user) {
+    //     track('profile found',undefined, {
+    //         user_id: ctx.from.username,
+    //     })
+    //     await ctx.reply('✅ Нашел');
+    //     await sendProfile(ctx)
+    //     await ctx.reply('Твой профиль? Дозаполнить и изменить можно будет дальше',Markup.inlineKeyboard(makeKeyboard(['Да, мой', 'Не мой'], 3, 'isRight'), {columns: 3}))
+    // } else {
+    //
+    // }
 })
-console.log('asd')
+
 bot.action(/isRight_(.+)/, async (ctx) => {
     const optionName = ctx.match[1];
     await ctx.answerCbQuery(); // Required to close the loading state on the button

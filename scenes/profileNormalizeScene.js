@@ -3,7 +3,7 @@ const {makeKeyboard} = require("../helpers/keyboard");
 const { WizardScene} = Scenes;
 const {supabase} = require("../supabase");
 const {getMissingData} = require("../helpers/getMissingData");
-const {skillsDict, hobbiesDict} = require("../config");
+const {skillsDict, hobbiesDict, groupsDict} = require("../config");
 const {uploadImage} = require("../helpers/uploadImage");
 const {track} = require("@amplitude/analytics-node");
 const {sendProfile} = require("../helpers/getUserFormDB");
@@ -20,6 +20,7 @@ const {sendProfile} = require("../helpers/getUserFormDB");
 // }
 
 const dataDict = {
+    groups: 'К какой группе относитесь',
     name: 'Имя',
     profile_photo_url: 'Фото',
     description: 'Описание',
@@ -27,7 +28,6 @@ const dataDict = {
     superpower: 'Суперсила',
     // skills: 'Навыки',
     // hobbies: 'Увлечения',
-    // groups: 'К какой группе относитесь',
 }
 
 const saveMultyToDB = async (ctx, answer) => {
@@ -62,6 +62,9 @@ const profileNormalizeScene = new WizardScene(
                 if(ctx.session.currentField === 'hobbies') {
                     data = ctx.session.hobbies.map(hobby => hobbiesDict.find(item => item.name === hobby).id).join(',')
                 }
+                if(ctx.session.currentField === 'groups') {
+                    data = ctx.session.groups.join(',')
+                }
             }
             await supabase
                 .from('Users')
@@ -71,15 +74,20 @@ const profileNormalizeScene = new WizardScene(
             await ctx.answerCbQuery();
             ctx.session.missingData.shift();
         }
+
         if(!ctx.session.missingData) {
             track('normalize scene entered', undefined, {user_id: ctx.from.username})
-            ctx.session.missingData = getMissingData(ctx.session.user).filter(field => dataDict.hasOwnProperty(field));
+            // ctx.session.missingData = getMissingData(ctx.session.user).filter(field => dataDict.hasOwnProperty(field));
+            const missingData = getMissingData(ctx.session.user)
+            ctx.session.missingData = Object.keys(dataDict).reduce((acc, key) => missingData.includes(key) ? [...acc, key] : acc, [])
             if(!ctx.session.missingData.includes('skills')){ctx.session.missingData.push('skills')}
             if(!ctx.session.missingData.includes('hobbies')){ctx.session.missingData.push('hobbies')}
             ctx.session.skills = [];
             ctx.session.hobbies = [];
+            ctx.session.groups = [];
             ctx.session.hobbiesMessages = []
             ctx.session.skillsMessages = []
+            ctx.session.groupsMessages = []
         }
 
         ctx.session.currentField = ctx.session.missingData[0];
@@ -164,7 +172,31 @@ const profileNormalizeScene = new WizardScene(
                 return ctx.wizard.selectStep(0)
                 break;
             case 'groups':
-                 await ctx.reply('К каким группам себя относишь?');
+                if(ctx.session.groups.length >= 4) {
+                    await ctx.reply(`Выбрано максимальное количество`);
+                    await saveMultyToDB(ctx, answer)
+                    // ctx.session.hobbiesMessages.forEach(msg => {
+                    //     ctx.telegram.deleteMessage(msg.chat.id, msg.message_id)
+                    // })
+                    // ctx.telegram.deleteMessage(ctx.session.hobbiesMessage.chat.id, ctx.session.hobbiesMessage.message_id)
+                    return ctx.scene.enter('profileNormalize');
+                }
+                if(answer && prefix === 'groups'){
+                    await ctx.answerCbQuery();
+                    track('group added', {group:answer}, {user_id: ctx.from.username})
+                    if(ctx.session.groups.includes(answer)){
+                        await ctx.reply(`❌ Уже добавлено ${answer}`);
+                    } else {
+                        ctx.session.groups.push(answer);
+                        await ctx.reply(`✅ Добавлено ${answer}`);
+                    }
+                }
+                if(ctx.session.groups.length === 0) {
+                    await ctx.reply('Выбери группы к которым себя относишь.', Markup.inlineKeyboard(makeKeyboard(groupsDict, 1, 'groups'), {columns: 3}));
+                    await ctx.reply('Нажми "Готово" когда закончишь', Markup.inlineKeyboard(makeKeyboard(['💾 Готово'], 3, 'done'), {columns: 3}));
+                    // ctx.session.groupsMessages.push(msgOne, msgTwo)
+                }
+                return ctx.wizard.selectStep(0)
                 break;
             default:
                 await supabase
@@ -173,7 +205,7 @@ const profileNormalizeScene = new WizardScene(
                     .eq('telegram', ctx.session.user.telegram);
                 await sendProfile(ctx)
                 // send inline keyboard
-                await ctx.reply('Профиль готов! Теперь давай заполним запрос на следующую неделю', Markup.inlineKeyboard(makeKeyboard(['Перейти к запросу'], 2, 'done'), {columns: 2}));
+                await ctx.reply('Профиль готов! Теперь давай заполним запрос на следующую встречу', Markup.inlineKeyboard(makeKeyboard(['Перейти к запросу'], 2, 'done'), {columns: 2}));
                 track('profile is ready', undefined, {user_id: ctx.from.username})
                 // return ctx.scene.enter('requestScene');
         }
@@ -194,6 +226,9 @@ const profileNormalizeScene = new WizardScene(
             }
             if(ctx.session.currentField === 'hobbies') {
                 data = ctx.session.hobbies.map(hobby => hobbiesDict.find(item => item.name === hobby).id).join(',')
+            }
+            if(ctx.session.currentField === 'groups') {
+                data = ctx.session.groups.join(',')
             }
         }
         if(ctx.session.currentField === 'profile_photo_url') {

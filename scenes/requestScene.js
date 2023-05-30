@@ -58,7 +58,11 @@ const saveRequestToDB = async (ctx) => {
         profit_level: ctx.session.funOrProfit,
         format: ctx.session.format,
     }
-    if(ctx.session.location) request.location = ctx.session.location;
+    if(ctx.session.location) {
+        request.location = ctx.session.location;
+    } else {
+        request.location = null;
+    }
 
     if(!currRequest) {
         request.telegram = ctx.from.username;
@@ -73,14 +77,12 @@ const saveRequestToDB = async (ctx) => {
 
         if(error) console.log('error', error)
     }
-
 }
 
 const requestScene = new WizardScene(
     'requestScene',
     /// STEP 0 --------------------
     async (ctx) => {
-        // await ctx.reply('Теперь давай заполним твой запрос на следующую неделю.');
         await ctx.replyWithPhoto('https://ibb.co/CwzxZ3F');
         await ctx.reply(
             `Некоторые люди приходят на встречи, чтобы найти партнёров для будущих проектов и завести полезные контакты, условно назовём это "пользой". А кто-то приходит для расширения кругозора, новых эмоций и открытия чего-то нового, назовём это "фан". Какое описание больше подходит тебе?
