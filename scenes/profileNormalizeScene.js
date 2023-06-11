@@ -203,7 +203,7 @@ const profileNormalizeScene = new WizardScene(
                     .from('Users')
                     .update({ is_updated: true })
                     .eq('telegram', ctx.session.user.telegram);
-                await sendProfile(ctx)
+                await sendProfile(ctx, false)
                 // send inline keyboard
                 await ctx.reply('Профиль готов! Теперь давай заполним запрос на следующую встречу', Markup.inlineKeyboard(makeKeyboard(['Перейти к запросу'], 2, 'done'), {columns: 2}));
                 track('profile is ready', undefined, {user_id: ctx.from.username})

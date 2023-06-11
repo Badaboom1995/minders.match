@@ -46,6 +46,21 @@ module.exports = async (req, res) => {
     }
 };
 
+const updatePairInSupabase = async (user, impression) => {
+    const { data, error } = await supabase
+        .from('Pairs')
+        .select('*')
+        .or(`user.eq.${user}, partner.eq.${user}`)
+        .single()
+
+        const fieldName = data.user === user ? 'impression_user' : 'impression_partner'
+        await supabase
+        .from('Pairs')
+        .update({ [fieldName]: impression })
+        .eq('id', data.id)
+        .single()
+}
+
 const saveChatId = async (ctx) => {
     const {error} = await supabase
         .from('Users')
@@ -88,35 +103,9 @@ bot.action(/sync(.+)/, async (ctx) => {
     track('sync button pushed',undefined, {
         user_id: ctx.from.username,
     })
-    // const username =  ctx.from.username;
-    // const {user, error} = await getUserFormDB(username);
     await ctx.answerCbQuery();
-    // await ctx.reply(`Супер, нужно заполнить недостающие поля`);
     await wait(1000);
     await ctx.scene.enter('profileNormalize');
-    // if(user){
-    //     await ctx.reply(' Нашел');
-    // }
-    // ctx.session.user = user;
-    // if (error) {
-    //     track('profile not found',undefined, {
-    //         user_id: ctx.from.username,
-    //     })
-    //     ctx.reply(messages.notFoundProfile());
-    //     const timestamp = new Date().toLocaleString();
-    //     await sendToAdmins(`🚨Не нашли пользователя ${ctx.from.username}, ${timestamp}`, bot)
-    // }
-
-    // if (user) {
-    //     track('profile found',undefined, {
-    //         user_id: ctx.from.username,
-    //     })
-    //     await ctx.reply('✅ Нашел');
-    //     await sendProfile(ctx)
-    //     await ctx.reply('Твой профиль? Дозаполнить и изменить можно будет дальше',Markup.inlineKeyboard(makeKeyboard(['Да, мой', 'Не мой'], 3, 'isRight'), {columns: 3}))
-    // } else {
-    //
-    // }
 })
 
 bot.action(/isRight_(.+)/, async (ctx) => {
@@ -139,9 +128,42 @@ bot.action(/isRight_(.+)/, async (ctx) => {
     }
 })
 
+bot.action(/get_review(.+)/, async (ctx) => {
+    const answer = ctx.match[1]
+    await ctx.answerCbQuery();
+    if(answer === '_Да, встретились!') {
+        ctx.reply('Как прошла встреча?', Markup.inlineKeyboard(makeKeyboard(['Отлично', 'Нормально', 'Ну такое'], 3, 'meet_quality'), {columns: 3}))
+    }
+    if(answer === '_Нет, встретимся позже') {
+        await updatePairInSupabase(ctx.from.username, 'later')
+        await ctx.reply(`Окей, записал`);
+    }
+    if(answer === '_Не договорились') {
+        await updatePairInSupabase(ctx.from.username, 'not_met')
+        await ctx.reply(`Окей, записал`);
+    }
+})
+
+bot.action(/meet_quality(.+)/, async (ctx) => {
+    // const username =  ctx.from.username;
+    // const {user, error} = await getUserFormDB(username);
+    const answer = ctx.match[1]
+    if(answer === '_Отлично'){
+        await updatePairInSupabase(ctx.from.username, 'great')
+    }
+    if(answer === '_Нормально'){
+        await updatePairInSupabase(ctx.from.username, 'ok')
+    }
+    if(answer === '_Ну такое'){
+        await updatePairInSupabase(ctx.from.username, 'bad')
+    }
+    await ctx.answerCbQuery();
+    await ctx.reply(`Окей, записал`);
+})
+
 bot.hears('👤 Профиль', async (ctx) => {
-    await sendProfile(ctx)
-    await ctx.reply('Действия:', Markup.inlineKeyboard(makeKeyboard(['📝 Редактировать'], 2, 'profileActions'), {columns: 2}))
+    await sendProfile(ctx, true)
+    // await ctx.reply('Действия:', Markup.inlineKeyboard(makeKeyboard(['📝 Редактировать'], 2, 'profileActions'), {columns: 2}))
 
 });
 bot.hears('🤲 Поддержка', async (ctx) => {
@@ -194,6 +216,8 @@ bot.on('text', async (ctx) => {
         {text: ctx.message.text},
         {user_id: ctx.from.username})
 });
+
+module.exports = {bot}
 // bot.on('text', async (ctx) => {
 //     if(ctx.message.text === '/start') return
 //     if(ctx.message.text === 'edit'){
