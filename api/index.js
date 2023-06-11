@@ -208,47 +208,4 @@ bot.on('text', async (ctx) => {
         {user_id: ctx.from.username})
 });
 
-module.exports = {bot}
-// bot.on('text', async (ctx) => {
-//     if(ctx.message.text === '/start') return
-//     if(ctx.message.text === 'edit'){
-//         await ctx.scene.enter('editProfile');
-//     }
-//
-//     if(ctx.message.text === 'skills') {
-//         // reply with inline keyboard of skills
-//         ctx.reply('💻Tехнические навыки', Markup.inlineKeyboard(makeKeyboard(skills.tech, 3), {columns: 3}));
-//         ctx.reply('💼 Бизнес', Markup.inlineKeyboard(makeKeyboard(skills.business, 3), {columns: 3}));
-//         ctx.reply('🎨 Креативность', Markup.inlineKeyboard(makeKeyboard(skills.creative, 3), {columns: 3}));
-//         ctx.reply('💜 Софт скилз', Markup.inlineKeyboard(makeKeyboard(skills.soft_skills, 3), {columns: 3}));
-//         // ctx.reply('Business skills', Markup.inlineKeyboard(businessKeys));
-//     }
-//     if(ctx.message.text === 'hobbies') {
-//         const hightCategoryKeyboard = Object.keys(hobbies).reduce((acc,key) => {
-//             return [...acc, [Markup.button.callback(key, `option_${key}`)]];
-//         },[]);
-//         ctx.replyWithHTML(`<b><code> Выберите категорию </code></b>`, Markup.inlineKeyboard(hightCategoryKeyboard,{columns:1}));
-//     }
-// });
-//
-//
-// bot.action(/skill_(.+)/, async (ctx) => {
-//     const optionName = ctx.match[1];
-//     await ctx.answerCbQuery(); // Required to close the loading state on the button
-//     await ctx.replyWithHTML(`<b>${optionName}</b> skill has been added to your profile`);
-// })
-// bot.action(/option_(.+)/, async (ctx) => {
-//     const optionName = ctx.match[1];
-//     await ctx.answerCbQuery(); // Required to close the loading state on the button
-//     await ctx.replyWithHTML(`<b>${optionName}</b> skill has been added to your profile`);
-// })
-
-
-// GPT_API_KEY = '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'
-// TOKEN_PROD = '5888882359:AAGcta__XatJMomOeSNIzTvQ9k5y7ejP8jQ'
-// TOKEN_DEV = '6130195892:AAFB22x7qbo0wICcuSXffFHSyflc4tYm0b4'
-// AMPLITUDE_API_KEY = 'fc185899af59f00b16d189f6bae75ad'
-// NODE_ENV = 'development'
-
 // bot.launch();
-// console.log('bot started');
