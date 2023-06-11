@@ -250,5 +250,5 @@ module.exports = {bot}
 // AMPLITUDE_API_KEY = 'fc185899af59f00b16d189f6bae75ad'
 // NODE_ENV = 'development'
 
-bot.launch();
+// bot.launch();
 // console.log('bot started');
