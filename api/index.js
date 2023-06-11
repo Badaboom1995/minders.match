@@ -185,15 +185,6 @@ bot.action(/profileActions_(.+)/, async (ctx) => {
     const optionName = ctx.match[1];
     await ctx.answerCbQuery(); // Required to close the loading state on the button
     if(optionName === '📝 Редактировать') {
-        // await ctx.reply(
-        //     'Что хотите поменять?',
-        //     Markup.inlineKeyboard(
-        //         makeKeyboard(
-        //             ['Имя', "Фото", "Описание", "Суперсила", "Отмена"],
-        //             3, 'edit'),
-        //         {columns: 3}
-        //     )
-        // );
         await ctx.scene.enter('editScene');
     }
 })
@@ -259,5 +250,5 @@ module.exports = {bot}
 // AMPLITUDE_API_KEY = 'fc185899af59f00b16d189f6bae75ad'
 // NODE_ENV = 'development'
 
-// bot.launch();
+bot.launch();
 // console.log('bot started');
