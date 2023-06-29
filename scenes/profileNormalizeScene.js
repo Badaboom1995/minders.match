@@ -202,7 +202,7 @@ const profileNormalizeScene = new WizardScene(
                 await supabase
                     .from('Users')
                     .update({ is_updated: true })
-                    .eq('telegram', ctx.session.user.telegram);
+                    .eq('telegram', ctx.from.username);
                 await sendProfile(ctx, false)
                 // send inline keyboard
                 await ctx.reply('Профиль готов! Теперь давай заполним запрос на следующую встречу', Markup.inlineKeyboard(makeKeyboard(['Перейти к запросу'], 2, 'done'), {columns: 2}));

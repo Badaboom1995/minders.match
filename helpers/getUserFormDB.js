@@ -2,8 +2,11 @@ const {supabase} = require("../supabase");
     const { Telegraf, Markup, Extra } = require('telegraf');
 const {messages, skillsDict, hobbiesDict} = require("../config");
 const {removePatternFromString} = require("./removePatternFromString");
-const {bot} = require("../api");
+// const {bot} = require("../api");
 const {makeKeyboard} = require("./keyboard");
+
+const prodToken = '5888882359:AAGcta__XatJMomOeSNIzTvQ9k5y7ejP8jQ'
+const bot = new Telegraf(prodToken);
 
 const getUserFormDB = async (username) => {
     const { data: user, error } = await supabase
@@ -37,8 +40,6 @@ ${user.hobbies ? getNames(user.hobbies, hobbiesDict) : messages.noHobbies()}
 
 
 const sendProfileByChatId = async (chatId, user) => {
-    chatId = '208165379'
-    // await bot.telegram.sendPhoto(chatId, user.profile_photo_url, {reply_markup: keyboard})
     await bot.telegram.sendPhoto(chatId, user.profile_photo_url, {
         "reply_markup":{
             "inline_keyboard":[
@@ -57,21 +58,31 @@ const sendProfileByChatId = async (chatId, user) => {
 }
 const sendProfileWithContext = async (ctx, editable) => {
     const data = await getUserFormDB(ctx.from.username);
-    const user = data.user
+    console.log(data)
+    const user = data.user || {}
     await ctx.replyWithPhoto(
         user.profile_photo_url || 'https://i.ibb.co/bJ1WYpt/Group-993.jpg',
         {
-            caption: buildProfileHTML(user),
-            parse_mode: 'HTML',
-            "reply_markup":editable ? {
-                "inline_keyboard":[
-                    [
-                        {"text":"Редактировать", "callback_data":"editProfile_📝 Редактировать","hide":false}
-                    ]
-                ]
-            } : null,
+            // caption: buildProfileHTML(user),
+            // parse_mode: 'HTML',
+            // "reply_markup":editable ? {
+            //     "inline_keyboard":[
+            //         [
+            //             {"text":"Редактировать", "callback_data":"editProfile_📝 Редактировать","hide":false}
+            //         ]
+            //     ]
+            // } : null,
         }
     );
+    await ctx.replyWithHTML(buildProfileHTML(user), {
+        "reply_markup":editable ? {
+            "inline_keyboard":[
+                [
+                    {"text":"Редактировать", "callback_data":"editProfile_📝 Редактировать","hide":false}
+                ]
+            ]
+        } : null,
+    });
 }
 
 module.exports = {getUserFormDB, sendProfile: sendProfileWithContext, sendProfileByChatId}

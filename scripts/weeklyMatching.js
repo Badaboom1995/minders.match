@@ -1,7 +1,12 @@
 const {supabase} = require("../supabase");
 const dayjs = require("dayjs");
 const {sendProfileByChatId} = require("../helpers/getUserFormDB");
-const {bot} = require("../api");
+const {Telegraf} = require("telegraf");
+const {getWeekActiveUsers} = require("../helpers/getWeekActiveUsers");
+const {request} = require("axios");
+
+const prodToken = '5888882359:AAGcta__XatJMomOeSNIzTvQ9k5y7ejP8jQ'
+const bot = new Telegraf(prodToken);
 
 
 function findMultiplePairings(pairs) {
@@ -50,166 +55,168 @@ const getMainGroup = (user) => {
     return 'other'
 }
 
-const checkGroupMatch = (user, profile) => {
-    const mainGroup = getMainGroup(user)
-    const profileMainGroup = getMainGroup(profile)
-    if(mainGroup === profileMainGroup) {
-        return true
-    } else {
-        return false
-    }
-}
 let requests = []
 const getWeekRequests = async () => {
-    const weekStart = dayjs().startOf('isoWeek').subtract(1, 'week');
-    // get previous week requests
-    // const { data: prevWeekRequests, error } = await supabase
-    //     .from('Requests')
-    //     .select('*')
-    //     .gt('created_at', weekStart)
-
-    const weekRequests = await supabase.from('Requests').select('*')
+    const weekStart = dayjs().subtract(1, 'day').subtract(1, 'week').startOf('week').add(1, 'day')
+    const weekEnd = dayjs().subtract(1, 'day').subtract(1, 'week').endOf('week').add(2, 'day')
+    const weekRequests = await supabase
+        .from('Requests')
+        .select('*')
+        .gt('created_at', weekStart)
+        .lt('created_at', weekEnd)
     return weekRequests.data
 }
 
-const findPersonalMatch = (user, clusters, start, pairedUsers, isLastChance) => {
-    const userRequests = requests?.find(request => request.telegram === user.telegram)
+const findPersonalMatch = (user, clusters, start, pairedUsers, isLastChance, normalizedPairs) => {
+    const userRequests = requests?.find(request => {
+        return request.telegram === user.telegram
+    })
     const currClusters = clusters.slice(start.clusterIndex)
     currClusters[0] = currClusters[0].slice(start.index + 1)
     let bestMatch = { profile: null, score: 0 }
+    const funProfit = userRequests.profit_level
+    let isLastUser = true
+
     currClusters.some((cluster, i) => {
         cluster.forEach((profile, j) => {
-            // console.log(user.telegram, profile.telegram)
-            const funProfit = 10
             const userSkills = user.skills.split(',')
             const userHobbies = user.hobbies.split(',')
             const profileSkills = profile.skills.split(',')
             const profileHobbies = profile.hobbies.split(',')
-            const userRequests = requests?.find(request => request.telegram === user.telegram)
             const profileRequests = requests?.find(request => request.telegram === profile.telegram)
-            const formatMatch = userRequests.format === profileRequests.format
+            const formatMatch = userRequests?.format === profileRequests.format
+            const isAlreadyPaired = normalizedPairs.some(pair => pair.includes(user.telegram) && pair.includes(profile.telegram))
 
-            if(profile.id === user.id || pairedUsers.has(profile)) return
+            if(profile.id === user.id || pairedUsers.has(profile)) {
+                if(user.telegram === 'monkey_hero') {
+                    console.log(profile.telegram, 'is already paired')
+                }
+                return
+            }
+            isLastUser = false
             if(!formatMatch && !isLastChance) {
-                // console.log('format mismatch', user.telegram, profile.telegram)
+                if(user.telegram === 'monkey_hero') {
+                    console.log('format mismatch')
+                }
                 return
             }
             if(userRequests.format === 'Офлайн' && userRequests.location !== profileRequests.location && !isLastChance) {
-                // console.log('location mismatch', user.telegram, profile.telegram)
+                if(user.telegram === 'monkey_hero') {
+                    console.log('location mismatch')
+                }
+                return
+            }
+            if(isAlreadyPaired && !isLastChance) {
+                if(user.telegram === 'monkey_hero') {
+                    console.log('already paired')
+                }
                 return
             }
 
-            // console.log(userRequests.location, profileRequests.location, formatMatch && userRequests.format === 'offline' && userRequests.location !== profileRequests.location)
-            let score = 0
-            // filter if already have been paired
-                // check in table Pairs
-
+            let score = 1
+            if(userRequests.location === profileRequests.location) {
+                score += 500
+            }
             if(getMainGroup(user) === getMainGroup(profile)) {
                 score += 100
-                // console.log(user.telegram, 'matched with', profile.telegram, 'by group', getMainGroup(user))
             }
             profileSkills?.forEach(skill => {
                 if(userSkills.includes(skill)) {
-                    score += 10 * funProfit
-                    // console.log(user.telegram, 'matched with', profile.telegram, 'by skill', skill)
+                    score += funProfit
                 }
             });
             profileHobbies?.forEach(hobby => {
                 if(userHobbies.includes(hobby)) {
-                    score += 10 * (10 - funProfit)
-                    // console.log(user.telegram, 'matched with', profile.telegram, 'by hobby', hobby)
+                    score += (100 - funProfit)
                 }
             });
-            if(profile.age > user.age - 2 && profile.age < user.age + 2) {
-                score += 50
-                // console.log(user.telegram, 'matched with', profile.telegram, 'by age')
-            }
-            // console.log('total scroe is:', score)
             if(bestMatch.score < score) {
                 bestMatch = {profile, score, isLastChance}
             }
-            // if(!bestMatch.profile){
-            //     console.log(profile, user)
-            // }
         })
         if(bestMatch.score > 200) {
             return true
         }
     })
+    if(bestMatch.profile === null && isLastChance) {
+        const flatClusters = clusters.flat()
+        const cleanCluster = flatClusters.filter(profile => profile.telegram !== user.telegram)
+        const bestMatch = {profile: cleanCluster[Math.floor(Math.random()*cleanCluster.length)], score: 0, user}
+        return bestMatch
+    }
     if(bestMatch.profile === null) {
-        return findPersonalMatch(user, clusters, {clusterIndex: 0, index: 0}, new Set(), true)
+        if (!isLastUser){
+            const lastPair = currClusters.flat().find(profile => !pairedUsers.has(profile))
+            bestMatch = {profile: lastPair, score: 0}
+        } else {
+            return findPersonalMatch(user, clusters, {clusterIndex: 0, index: 0}, new Set(), true, normalizedPairs)
+        }
     }
     return {...bestMatch, user}
 }
 
-const runMatching = (clusters) => {
+const runMatching = (clusters, normalizedPairs) => {
     const pairs = []
     const pairedUsers = new Set();
     clusters.forEach((cluster, clusterIndex) => {
         cluster.forEach((user, index) => {
             if (pairedUsers.has(user)) return;
-            const pair = findPersonalMatch(user, clusters, {clusterIndex, index}, pairedUsers)
+            const pair = findPersonalMatch(user, clusters, {clusterIndex, index}, pairedUsers, false, normalizedPairs)
             pairs.push(pair);
             pairedUsers.add(user);
             pairedUsers.add(pair.profile);
         })
     })
-    // console.log(pairs.map(pair => ({user: pair.user.telegram, profile: pair.profile.telegram, isLastChance: pair.isLastChance})))
-    // console.log(pairs)
-    // sendProfileByChatId('208165379', pairs[0].user)
-    // pairs.forEach( pair => {
-    //     // send pair with hello message and instructions
-    //     // one in charge for meeting
-    //     // if isLastChance send with warning
-    //     console.log('pair:', pair.user.telegram, pair.profile.telegram)
-    //     console.log('to', pair.user.telegram, 'send', `
-    //         Привет! Мы нашли тебе пару на эту неделю: @${pair.profile.telegram}.
-    //         Случайным образом мы выбрали тебя в качестве ответственного за встречу. Пожалуйста, свяжись с @${pair.profile.telegram} и договорись о встрече.
-    //
-    //         ${pair.isLastChance ? 'К сожалению на этой неделе не нашлось людей в твоей локации, поэтому предлагаем вам встретиться онлайн' : ''}
-    //     `)
-    //     console.log('to', pair.profile.telegram, 'send', `
-    //         Привет! Мы нашли тебе пару на эту неделю: @${pair.user.telegram}.
-    //
-    //         ${pair.isLastChance ? 'К сожалению на этой неделе не нашлось людей в твоей локации, поэтому предлагаем вам встретиться онлайн' : ''}
-    //     `)
-    // })
+
     const multiplePairs = findMultiplePairings(pairs)
+    let counter = 0
     const sendPair = async (pair) => {
-            // first user
         try {
-            await bot.telegram.sendMessage(pair.user.chat_id, `Привет! Твоя пара на эту неделю -  @${pair.profile.telegram}`)
-            await sendProfileByChatId(pair.user.chat_id, pair.profile)
-            await bot.telegram.sendMessage(pair.user.chat_id, `Случайным образом мы выбрали тебя в качестве ответственного за встречу. Пожалуйста, свяжись с @${pair.profile.telegram} и договорись о встрече.`)
-            // second user
-            await bot.telegram.sendMessage(pair.profile.chat_id, `Привет! Твоя пара на эту неделю -  @${pair.user.telegram}`)
-            await sendProfileByChatId(pair.profile.chat_id, pair.user)
-            if(pair.isLastChance) {
-                await bot.telegram.sendMessage(pair.user.chat_id, 'К сожалению на этой неделе не нашлось людей в твоей локации, поэтому предлагаем вам встретиться онлайн')
-                await bot.telegram.sendMessage(pair.profile.chat_id, 'К сожалению на этой неделе не нашлось людей в твоей локации, поэтому предлагаем вам встретиться онлайн')
-            }
-            // send to admin
-            await bot.telegram.sendMessage('208165379', `Отправлено ${pair.user.telegram} и ${pair.profile.telegram}`)
-        } catch(e) {
-            // send to admin
-            await bot.telegram.sendMessage('208165379', `Что то пошло не так при отправке ${pair.user.telegram} и ${pair.profile.telegram}. ${e}`)
+            console.log(`send to ${pair.user.telegram}|${pair.user.chat_id}: Привет! Твоя пара на эту неделю -  @${pair.profile.telegram}`)
+            console.log(`send to ${pair.profile.telegram}|${pair.profile.chat_id}: Привет! Твоя пара на эту неделю -  @${pair.user.telegram}`)
+            console.log(counter++)
+            await Promise.all([
+                bot.telegram.sendMessage(pair.user.chat_id, `Привет! Твоя пара на эту неделю -  @${pair.profile.telegram}`),
+                sendProfileByChatId(pair.user.chat_id, pair.profile),
+                bot.telegram.sendMessage(pair.user.chat_id, `Случайным образом мы выбрали тебя в качестве ответственного за встречу. Пожалуйста, свяжись с @${pair.profile.telegram} и договорись о встрече.`),
+                bot.telegram.sendMessage(pair.profile.chat_id, `Привет! Твоя пара на эту неделю -  @${pair.user.telegram}`),
+                sendProfileByChatId(pair.profile.chat_id, pair.user)
+            ])
+        } catch(e){
+            await bot.telegram.sendMessage('208165379', `ошибка ${e} ${pair.user.telegram}`)
         }
     }
-    multiplePairs.forEach(async user => {
-        await bot.telegram.sendMessage(user.chat_id, `На этой неделе у нас нечетное количество участников и тебе досталась дополнительная пара :)`)
-    })
-    pairs.forEach( pair => {
-      sendPair(pair)
+    const promises = pairs.map(pair => sendPair(pair))
+    Promise.all(promises).then((res) => {
+        Promise.all(multiplePairs.map( user => bot.telegram.sendMessage(user.chat_id, `На этой неделе у нас нечетное количество участников и тебе досталась дополнительная пара :)`)))
+        supabase
+            .from('Pairs')
+            .insert(pairs.map(pair => {
+                return {
+                    user: pair.user.telegram,
+                    partner: pair.profile.telegram,
+                    Created: dayjs().format()
+                }
+            }))
+            .then((res) => {
+                console.log(res)
+        })
+        console.log('done')
     })
 }
+
 const weeklyMatching = async () => {
-   // get all users from supabase
-    let { data: Users, error } = await supabase
-        .from('Users')
-        .select('*')
-        .eq('is_ready', true)
+    const users = await getWeekActiveUsers()
+    let { data: Pairs, err } = await supabase
+        .from('Pairs')
+        .select('user, partner' )
+
+    const normalizedPairs = Pairs.map(pair => {
+        return [pair.user, pair.partner]
+    })
+
     requests = await getWeekRequests()
-    const clasters = Users.reduce( (acc, user) => {
+    const clasters = users.reduce( (acc, user) => {
         if(user.groups.includes('Я инвестор')) {
             acc.investors.push(user)
             return acc
@@ -230,8 +237,9 @@ const weeklyMatching = async () => {
         specialists: [],
         others: []
     })
+
     const sortedClusters = [clasters.investors, clasters.founders,clasters.specialists]
-    runMatching(sortedClusters)
+    runMatching(sortedClusters, normalizedPairs)
     return
 }
 

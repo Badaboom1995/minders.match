@@ -1,6 +1,6 @@
 const {getUserFormDB} = require("./getUserFormDB");
 const sendToAdmins = async (message, bot) => {
-    const admins = ['badavoo', 'ivan_tyumenyev']
+    const admins = ['badavoo']
     admins.forEach( admin => {
         const {user, error} = getUserFormDB(admin);
         if(user.chat_id) {

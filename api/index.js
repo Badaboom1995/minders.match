@@ -35,7 +35,7 @@ bot.use(session());
 bot.use(stage.middleware());
 
 bot.telegram.setWebhook('https://minders-match.vercel.app/api/index');
-// lol
+
 module.exports = async (req, res) => {
     try {
         await bot.handleUpdate(req.body);
@@ -145,8 +145,6 @@ bot.action(/get_review(.+)/, async (ctx) => {
 })
 
 bot.action(/meet_quality(.+)/, async (ctx) => {
-    // const username =  ctx.from.username;
-    // const {user, error} = await getUserFormDB(username);
     const answer = ctx.match[1]
     if(answer === '_Отлично'){
         await updatePairInSupabase(ctx.from.username, 'great')
@@ -196,7 +194,6 @@ bot.action(/editProfile_(.+)/, async (ctx) => {
 
     }
     await ctx.answerCbQuery(); // Required to close the loading state on the button
-    console.log(optionName)
     if(optionName === '📝 Редактировать') {
         await ctx.scene.enter('editScene');
     }
